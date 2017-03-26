@@ -46,7 +46,7 @@ ipv6pref_scanlist = [
     '2a01:e0a:2::/47' # Fiber: Native IPv6
 ]
 
-
+f = open('rttavg.txt', 'w')
 
 for ipv6pref in ipv6pref_scanlist:
     p = ipaddress.IPv6Network(ipv6pref)
@@ -56,7 +56,10 @@ for ipv6pref in ipv6pref_scanlist:
         try:
             ping_res = list(ping.quiet_ping(str(freebox_ipv6addr), timeout=3000, count=10, ipv6=True))
             rttmax, rttmin, rttavg, lost =  ping_res[-1]
+            f.write(str(rttavg) + "\n")
             print rttavg
+        except KeyboardInterrupt:
+            f.close()
         except:
             continue
 
