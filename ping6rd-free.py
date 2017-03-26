@@ -46,7 +46,7 @@ ipv6pref_scanlist = [
     '2a01:e0a:2::/47' # Fiber: Native IPv6
 ]
 
-f = open('rttavg.txt', 'w')
+f = open('./rttavg.txt', 'w', 0)
 
 for ipv6pref in ipv6pref_scanlist:
     p = ipaddress.IPv6Network(ipv6pref)
@@ -60,6 +60,7 @@ for ipv6pref in ipv6pref_scanlist:
             print rttavg
         except KeyboardInterrupt:
             f.close()
+            break
         except:
             continue
 
