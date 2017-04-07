@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 from __future__ import division
 import ipaddress
 from python_ping import ping
-
+import sys
 
 # from lafibre.info
 # https://lafibre.info/ipv6/plages-ip-par-fai/msg87273/
@@ -27,18 +27,18 @@ from python_ping import ping
 #212.62.128.0/18   AS12322
 
 
-FREE_6RD_PREFIX = "2a01:e30::"
+FREE_6RD_PREFIX = "2a01:e30::" # Free /28 IPv6 prefix reserved for 6rd
 
-def ipv4_to_ipv6rd(ipv4_addr, sixrd_pref):
+def ipv4_to_ipv6rd(ipv4_pref, pref_len):
     # Free 6rd prefix
-    sixrd_prefix = ipaddress.ip_address(sixrd_pref)
-    # Shift 68 times the 32b of IPv4 address
-    ip4rd = int(ipv4_addr) << 68
+    sixrd_prefix = ipaddress.ip_address(FREE_6RD_PREFIX)
+    # Shift 64 times the 32b of IPv4 address
+    ip4rd = int(ipv4_pref) << 68
     # Binary OR with 6rd prefix
-    long_prefix = int(sixrd_prefix) | ip4rd
-    # Add ::1 to get the address of the freebox
-    sixrd_address = ipaddress.ip_address(long_prefix + 1)
-    return sixrd_address
+    sixrd_pref = int(sixrd_prefix) | ip4rd
+    sixrd_preflen = 28 + pref_len
+    ip6net = ipaddress.IPv6Network((sixrd_pref, sixrd_preflen))
+    return ip6net
 
 def send_ping(addr, count):
     seq = 0
@@ -47,32 +47,39 @@ def send_ping(addr, count):
     while seq < count:
         res = ping.single_ping(str(addr), str(addr), 3000, seq, 64, ipv6=True, verbose=True)
         seq +=1
-        stats_delay.append(res[0])
-        stats_ttl.append(res[1][4])
-    avg_rtt = sum(stats_delay)/len(stats_delay)
-    avg_ttl = sum(stats_ttl)/len(stats_ttl)
-    return avg_rtt, avg_ttl
-        
+        #stats_delay.append(res[0])
+        #stats_ttl.append(res[1][4])
+    #avg_rtt = sum(stats_delay)/len(stats_delay)
+    #avg_ttl = sum(stats_ttl)/len(stats_ttl)
+    #return avg_rtt, avg_ttl
+    return 0, 0    
         
 ipv6pref_scanlist = [
-    '2a01:e35:8780::/43', # ADSL: 6rd prefix for 88.120.0.0/13
-    '2a01:e0a:2::/47' # Fiber: Native IPv6
+    # ADSL: 6rd prefix for 83.214.0.0/16
+    ipv4_to_ipv6rd(ipaddress.ip_address("88.120.0.0"),13), 
+    # ADSL: 6rd prefix for 83.214.0.0/16
+    ipv4_to_ipv6rd(ipaddress.ip_address("83.214.0.0"),16), 
+    # ADSL: 6rd prefix for 83.152.0.0/13
+    ipv4_to_ipv6rd(ipaddress.ip_address("83.152.0.0"),13)
+#    '2a01:e0a:2::/47' # Fiber: Native IPv6
 ]
 
 
-f = open('./rttavg.txt', 'w', 0)
-for ipv6pref in ipv6pref_scanlist:
-    p = ipaddress.IPv6Network(ipv6pref)
-    for freebox_ipv6pref in p.subnets(new_prefix=60):
+#f = open('./rttavg.txt', 'w', 0)
+s = open('./fbx_ipv6addr.txt', 'w', 0)
+for prefix in ipv6pref_scanlist:
+    for freebox_ipv6pref in prefix.subnets(new_prefix=60):
         freebox_ipv6addr = freebox_ipv6pref.hosts().next()
         #print freebox_ipv6addr
         try:
-            rttavg, ttlavg =  send_ping(freebox_ipv6addr, 10)
-            line = str(freebox_ipv6addr) + " , " + str(rttavg) + " , " + str(ttlavg)
-            f.write(line + "\n")
-            print line
+            p = list(ping.quiet_ping(str(freebox_ipv6addr), timeout=3000, count=3, ipv6=True))
+            #line = str(freebox_ipv6addr) + " , " + str(rttavg) + " , " + str(ttlavg)
+            #f.write(line + "\n")
+            #print line
+            s.write(str(freebox_ipv6addr) + "\n")
+            print(str(freebox_ipv6addr))
         except KeyboardInterrupt:
-            f.close()
+            s.close()
             break
         except:
             continue
