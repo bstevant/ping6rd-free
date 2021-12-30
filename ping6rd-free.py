@@ -1,6 +1,7 @@
 #!/usr/bin/python 
 
 from __future__ import unicode_literals
+from __future__ import division
 import ipaddress
 from python_ping import ping
 
@@ -39,25 +40,37 @@ def ipv4_to_ipv6rd(ipv4_addr, sixrd_pref):
     sixrd_address = ipaddress.ip_address(long_prefix + 1)
     return sixrd_address
 
-
-
+def send_ping(addr, count):
+    seq = 0
+    stats_delay = []
+    stats_ttl = []
+    while seq < count:
+        res = ping.single_ping(str(addr), str(addr), 3000, seq, 64, ipv6=True, verbose=True)
+        seq +=1
+        stats_delay.append(res[0])
+        stats_ttl.append(res[1][4])
+    avg_rtt = sum(stats_delay)/len(stats_delay)
+    avg_ttl = sum(stats_ttl)/len(stats_ttl)
+    return avg_rtt, avg_ttl
+        
+        
 ipv6pref_scanlist = [
     '2a01:e35:8780::/43', # ADSL: 6rd prefix for 88.120.0.0/13
     '2a01:e0a:2::/47' # Fiber: Native IPv6
 ]
 
-f = open('./rttavg.txt', 'w', 0)
 
+f = open('./rttavg.txt', 'w', 0)
 for ipv6pref in ipv6pref_scanlist:
     p = ipaddress.IPv6Network(ipv6pref)
     for freebox_ipv6pref in p.subnets(new_prefix=60):
         freebox_ipv6addr = freebox_ipv6pref.hosts().next()
         #print freebox_ipv6addr
         try:
-            ping_res = list(ping.quiet_ping(str(freebox_ipv6addr), timeout=3000, count=10, ipv6=True))
-            rttmax, rttmin, rttavg, lost =  ping_res[-1]
-            f.write(str(rttavg) + "\n")
-            print rttavg
+            rttavg, ttlavg =  send_ping(freebox_ipv6addr, 10)
+            line = str(freebox_ipv6addr) + " , " + str(rttavg) + " , " + str(ttlavg)
+            f.write(line + "\n")
+            print line
         except KeyboardInterrupt:
             f.close()
             break
